@@ -19,6 +19,7 @@ def parse_args():
     parser.add_argument('--model', help='model file path')
     parser.add_argument('--path', default='./demo', help='path to images or video')
     parser.add_argument('--camid', type=int, default=0, help='webcam demo camera id')
+    parser.add_argument('--device', type=str, default='cpu', help='device cpu or cuda:x')
     args = parser.parse_args()
     return args
 
@@ -78,12 +79,13 @@ def get_image_list(path):
 
 def main():
     args = parse_args()
-    torch.backends.cudnn.enabled = True
-    torch.backends.cudnn.benchmark = True
+    if args.device != 'cpu':
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = True
 
     load_config(cfg, args.config)
     logger = Logger(-1, use_tensorboard=False)
-    predictor = Predictor(cfg, args.model, logger, device='cuda:0')
+    predictor = Predictor(cfg, args.model, logger, device=args.device)
     logger.log('Press "Esc", "q" or "Q" to exit.')
     if args.demo == 'image':
         if os.path.isdir(args.path):
