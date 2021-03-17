@@ -14,9 +14,9 @@ def quality_focal_loss(pred, target, beta=2.0):
     Args:
         pred (torch.Tensor): Predicted joint representation of classification
             and quality (IoU) estimation with shape (N, C), C is the number of
-            classes.
+            classes. 公式 \sigma
         target (tuple([torch.Tensor])): Target category label with shape (N,)
-            and target quality label with shape (N,).
+            and target quality label with shape (N,). 公式 y
         beta (float): The beta parameter for calculating the modulating factor.
             Defaults to 2.0.
 

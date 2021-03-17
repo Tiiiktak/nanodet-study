@@ -19,13 +19,18 @@ model:
       num_classes: 80
       input_channel: 96
       feat_channels: 96
-      stacked_convs: 2
-      share_cls_reg: True
-      octave_base_scale: 5
-      scales_per_octave: 1
-      strides: [8, 16, 32]
-      reg_max: 7
-      norm_cfg:
+      stacked_convs: 2  # how many conv blocks use in one task head
+      share_cls_reg: True # use same conv blocks for classification and box regression
+      octave_base_scale: 5 # base box scale
+      scales_per_octave: 1 # anchor free model only have one base box, default value 1
+      strides: [8, 16, 32]  # down sample stride of each feature map level
+      reg_max: 7  # max value of per-level l-r-t-b distance
+                  # regmax理论上只要大于fpn输出的最小特征图边长的1/2就可以保证预测到的最大的box能够覆盖全图，
+                  # 但由于实际情况下cls分支得到的正样本点不一定位于正中心，
+                  # 因此regmax要略大于1/2的最小特征图边长。
+                  # 320输入下最小特征图边长的1/2为5，因此最终选择了比5略大的7。
+                  # https://github.com/RangiLyu/nanodet/issues/107
+      norm_cfg: # normalization layer setting
         type: BN
       loss:
         loss_qfl:

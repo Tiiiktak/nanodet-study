@@ -34,7 +34,7 @@ class ATSSAssigner(BaseAssigner):
     """
 
     def __init__(self, topk):
-        self.topk = topk
+        self.topk = topk    # DEFAULT set to 7
 
     # https://github.com/sfzhang15/ATSS/blob/master/atss_core/modeling/rpn/atss/loss.py
 
@@ -44,7 +44,7 @@ class ATSSAssigner(BaseAssigner):
                gt_bboxes,
                gt_bboxes_ignore=None,
                gt_labels=None):
-        """Assign gt to bboxes.
+        """Assign gt to bboxes.(grid cells
 
         The assignment is done in following steps
 

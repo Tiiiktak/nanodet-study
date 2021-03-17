@@ -17,7 +17,7 @@ class NanoDetHead(GFLHead):
                  input_channel,
                  stacked_convs=2,
                  octave_base_scale=5,
-                 conv_type='DWConv',
+                 conv_type='DWConv',    # DEFAULT
                  conv_cfg=None,
                  norm_cfg=dict(type='BN'),
                  reg_max=16,
@@ -48,15 +48,16 @@ class NanoDetHead(GFLHead):
             cls_convs, reg_convs = self._buid_not_shared_head()
             self.cls_convs.append(cls_convs)
             self.reg_convs.append(reg_convs)
-
+        # GFL classification & IoU
         self.gfl_cls = nn.ModuleList([nn.Conv2d(self.feat_channels,
-                                                self.cls_out_channels +
+                                                self.cls_out_channels +  # 若gfl_cls与gfl_reg共享conv blocks
                                                 4 * (self.reg_max + 1) if self.share_cls_reg else self.cls_out_channels,
                                                 1,
                                                 padding=0) for _ in self.strides])
+        # GFL bbox regression
         # TODO: if
         self.gfl_reg = nn.ModuleList([nn.Conv2d(self.feat_channels,
-                                                4 * (self.reg_max + 1),
+                                                4 * (self.reg_max + 1),  # 四个方向，
                                                 1,
                                                 padding=0) for _ in self.strides])
 
@@ -74,7 +75,7 @@ class NanoDetHead(GFLHead):
                                 norm_cfg=self.norm_cfg,
                                 bias=self.norm_cfg is None,
                                 activation=self.activation))
-            if not self.share_cls_reg:
+            if not self.share_cls_reg:  # self.share_cls_reg always== True
                 reg_convs.append(
                     self.ConvModule(chn,
                                     self.feat_channels,
@@ -116,8 +117,8 @@ class NanoDetHead(GFLHead):
             cls_feat = cls_conv(cls_feat)
         for reg_conv in reg_convs:
             reg_feat = reg_conv(reg_feat)
-        if self.share_cls_reg:
-            feat = gfl_cls(cls_feat)
+        if self.share_cls_reg:  # True
+            feat = gfl_cls(cls_feat)    # 取特征（class_nums +y)通道输出
             cls_score, bbox_pred = torch.split(feat, [self.cls_out_channels, 4 * (self.reg_max + 1)], dim=1)
         else:
             cls_score = gfl_cls(cls_feat)

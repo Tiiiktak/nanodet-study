@@ -65,6 +65,12 @@ class Predictor(object):
         self.model.head.show_result(meta['raw_img'], dets, class_names, score_thres=score_thres, show=True)
         print('viz time: {:.3f}s'.format(time.time()-time1))
 
+    def draw_bbox(self, dets, meta, class_names, score_thres):
+        time1 = time.time()
+        result = self.model.head.show_result(meta['raw_img'], dets, class_names, score_thres=score_thres, show=False)
+        print('viz time: {:.3f}s'.format(time.time() - time1))
+        return result
+
 
 def get_image_list(path):
     image_names = []
@@ -101,13 +107,24 @@ def main():
                 break
     elif args.demo == 'video' or args.demo == 'webcam':
         cap = cv2.VideoCapture(args.path if args.demo == 'video' else args.camid)
+        result_video_path = args.path.replace('.avi', '_result.avi')
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        size = (w, h)
+        result_cap = cv2.VideoWriter(result_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, size)
         while True:
             ret_val, frame = cap.read()
-            meta, res = predictor.inference(frame)
-            predictor.visualize(res, meta, cfg.class_names, 0.35)
-            ch = cv2.waitKey(1)
-            if ch == 27 or ch == ord('q') or ch == ord('Q'):
+            if not ret_val:
                 break
+            meta, res = predictor.inference(frame)
+            # predictor.visualize(res, meta, cfg.class_names, 0.35)
+            result_frame = predictor.draw_bbox(res, meta, cfg.class_names, 0.36)
+            write_frame = cv2.resize(result_frame, (w, h), interpolation=cv2.INTER_NEAREST)
+            result_cap.write(write_frame)
+            # ch = cv2.waitKey(1)
+            # if ch == 27 or ch == ord('q') or ch == ord('Q'):
+            #     break
 
 
 if __name__ == '__main__':

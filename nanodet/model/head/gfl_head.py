@@ -25,9 +25,12 @@ def reduce_mean(tensor):
 
 class Integral(nn.Module):
     """A fixed layer for calculating integral result from distribution.
+       从分布中计算积分结果的固定层
     This layer calculates the target location by :math: `sum{P(y_i) * y_i}`,
     P(y_i) denotes the softmax vector that represents the discrete distribution
+    P(y_i) 表示离散分布的softmax向量
     y_i denotes the discrete set, usually {0, 1, 2, ..., reg_max}
+    y_i 表示离散集
     Args:
         reg_max (int): The maximal value of the discrete set. Default: 16. You
             may want to reset it according to your new dataset or related
@@ -37,12 +40,13 @@ class Integral(nn.Module):
     def __init__(self, reg_max=16):
         super(Integral, self).__init__()
         self.reg_max = reg_max
-        self.register_buffer('project',
+        self.register_buffer('project',  # 定义常量 project, [0,1,...,7]
                              torch.linspace(0, self.reg_max, self.reg_max + 1))
 
     def forward(self, x):
         """Forward feature from the regression head to get integral result of
         bounding box location.
+        从regression头前向传播特征以获得bbox位置的积分结果
         Args:
             x (Tensor): Features of the regression head, shape (N, 4*(n+1)),
                 n is self.reg_max.
@@ -50,7 +54,8 @@ class Integral(nn.Module):
             x (Tensor): Integral result of box locations, i.e., distance
                 offsets from the box center in four directions, shape (N, 4).
         """
-        x = F.softmax(x.reshape(-1, self.reg_max + 1), dim=1)
+        x = F.softmax(x.reshape(-1, self.reg_max + 1), dim=1)   # 4个方向(向量)分别softmax
+        # y = xA^T + b x与project对应位置相乘求和
         x = F.linear(x, self.project.type_as(x)).reshape(-1, 4)
         return x
 
@@ -164,6 +169,7 @@ class GFLHead(nn.Module):
         normal_init(self.gfl_reg, std=0.01)
 
     def forward(self, feats):
+        """multiscale forward"""
         return multi_apply(self.forward_single, feats, self.scales)
 
     def forward_single(self, x, scale):
@@ -178,7 +184,7 @@ class GFLHead(nn.Module):
         return cls_score, bbox_pred
 
     def loss(self, preds, gt_meta):
-        cls_scores, bbox_preds = preds
+        cls_scores, bbox_preds = preds  # ([cls_score, ...], [bbox_pred, ...])
         batch_size = cls_scores[0].shape[0]
         device = cls_scores[0].device
         gt_bboxes = gt_meta['gt_bboxes']
@@ -187,6 +193,7 @@ class GFLHead(nn.Module):
 
         featmap_sizes = [featmap.size()[-2:] for featmap in cls_scores]
 
+        # 分配目标？
         cls_reg_targets = self.target_assign(batch_size, featmap_sizes, gt_bboxes,
                                              gt_bboxes_ignore, gt_labels, device=device)
         if cls_reg_targets is None:
@@ -200,7 +207,7 @@ class GFLHead(nn.Module):
         num_total_samples = max(num_total_samples, 1.0)
 
         losses_qfl, losses_bbox, losses_dfl, \
-        avg_factor = multi_apply(
+        avg_factor = multi_apply(   # loss_qfl, loss_bbox, loss_dfl, weight_targets.sum()
             self.loss_single,
             grid_cells_list,
             cls_scores,
@@ -259,15 +266,17 @@ class GFLHead(nn.Module):
 
             weight_targets = cls_score.detach().sigmoid()
             weight_targets = weight_targets.max(dim=1)[0][pos_inds]
+            # bbox_pred(N, 4*(reg_max+1)) -> (N, 4) 得到四个方向分量
             pos_bbox_pred_corners = self.distribution_project(pos_bbox_pred)
+            # center+(l,r,t,b) -> [x1, y1, x2, y2]
             pos_decode_bbox_pred = distance2bbox(pos_grid_cell_centers,
                                                  pos_bbox_pred_corners)
             pos_decode_bbox_targets = pos_bbox_targets / stride
-            score[pos_inds] = bbox_overlaps(
+            score[pos_inds] = bbox_overlaps(    # 计算iou
                 pos_decode_bbox_pred.detach(),
                 pos_decode_bbox_targets,
                 is_aligned=True)
-            pred_corners = pos_bbox_pred.reshape(-1, self.reg_max + 1)
+            pred_corners = pos_bbox_pred.reshape(-1, self.reg_max + 1)  # (4 * n, reg_max + 1)
             target_corners = bbox2distance(pos_grid_cell_centers,
                                            pos_decode_bbox_targets,
                                            self.reg_max).reshape(-1)
@@ -302,11 +311,11 @@ class GFLHead(nn.Module):
                       batch_size,
                       featmap_sizes,
                       gt_bboxes_list,
-                      gt_bboxes_ignore_list,
+                      gt_bboxes_ignore_list,    # None
                       gt_labels_list,
                       device):
         """
-        Assign target for a batch of images.
+        Assign target for a batch of images. 为一批图片分配目标
         :param batch_size: num of images in one batch
         :param featmap_sizes: A list of all grid cell boxes in all image
         :param gt_bboxes_list: A list of ground truth boxes in all image
@@ -316,27 +325,29 @@ class GFLHead(nn.Module):
         :return: Assign results of all images.
         """
         # get grid cells of one image
-        multi_level_grid_cells = [
+        multi_level_grid_cells = [  # 每个level(stride)生成一张grid cells
             self.get_grid_cells(featmap_sizes[i],
                                 self.grid_cell_scale,
                                 stride,
                                 dtype=torch.float32,
                                 device=device) for i, stride in enumerate(self.strides)
         ]
-        mlvl_grid_cells_list = [multi_level_grid_cells for i in range(batch_size)]
+        mlvl_grid_cells_list = [multi_level_grid_cells for i in range(batch_size)]  # 一张图片一组
 
         # pixel cell number of multi-level feature maps
+        # 多层特征图的像素单元数（3层（即每层grid_cells数=feat_w*feat_h
         num_level_cells = [grid_cells.size(0) for grid_cells in mlvl_grid_cells_list[0]]
-        num_level_cells_list = [num_level_cells] * batch_size
-        # concat all level cells and to a single tensor
+        num_level_cells_list = [num_level_cells] * batch_size   # [[num1, num2, num3], [num1, num2, num3], ...]
+        # concat all level cells and to a single tensor 合并
         for i in range(batch_size):
             mlvl_grid_cells_list[i] = torch.cat(mlvl_grid_cells_list[i])
         # compute targets for each image
-        if gt_bboxes_ignore_list is None:
+        if gt_bboxes_ignore_list is None:   # True
             gt_bboxes_ignore_list = [None for _ in range(batch_size)]
-        if gt_labels_list is None:
+        if gt_labels_list is None:  # False
             gt_labels_list = [None for _ in range(batch_size)]
         # target assign on all images, get list of tensors
+        # 在所有图像上分配目标
         # list length = batch size
         # tensor first dim = num of all grid cell
         (all_grid_cells, all_labels, all_label_weights, all_bbox_targets,
@@ -350,7 +361,7 @@ class GFLHead(nn.Module):
         # no valid cells
         if any([labels is None for labels in all_labels]):
             return None
-        # sampled cells of all images
+        # sampled cells of all images 所有图像的采样网格
         num_total_pos = sum([max(inds.numel(), 1) for inds in pos_inds_list])
         num_total_neg = sum([max(inds.numel(), 1) for inds in neg_inds_list])
         # merge list of targets tensors into one batch then split to multi levels
@@ -371,6 +382,8 @@ class GFLHead(nn.Module):
                                  gt_labels):
         """
         Using ATSS Assigner to assign target on one image.
+        使用ATSS分配器在一张图片上分配目标
+        https://blog.csdn.net/sinat_37532065/article/details/105126367
         :param grid_cells: Grid cell boxes of all pixels on feature map
         :param num_level_cells: numbers of grid cells on each level's feature map
         :param gt_bboxes: Ground truth boxes
@@ -382,6 +395,7 @@ class GFLHead(nn.Module):
         gt_bboxes = torch.from_numpy(gt_bboxes).to(device)
         gt_labels = torch.from_numpy(gt_labels).to(device)
 
+        # 将gt分配到临近的grid
         assign_result = self.assigner.assign(grid_cells, num_level_cells,
                                              gt_bboxes, gt_bboxes_ignore,
                                              gt_labels)
@@ -422,7 +436,7 @@ class GFLHead(nn.Module):
             assign_result.gt_inds == 0, as_tuple=False).squeeze(-1).unique()
         pos_assigned_gt_inds = assign_result.gt_inds[pos_inds] - 1
 
-        if gt_bboxes.numel() == 0:
+        if gt_bboxes.numel() == 0:  # gt_bboxes 数量
             # hack for index error case
             assert pos_assigned_gt_inds.numel() == 0
             pos_gt_bboxes = torch.empty_like(gt_bboxes).view(-1, 4)
@@ -551,7 +565,8 @@ class GFLHead(nn.Module):
 
     def get_single_level_center_point(self, featmap_size, stride, dtype, device='cuda', flatten=True):
         """
-        Generate pixel centers of a single stage feature map.
+        Generate pixel centers of a singldistance2bboxe stage feature map.
+        # 将featmap分成h*w个网格，每个网格边长为stride，返回每个网格的中心
         :param featmap_size: height and width of the feature map
         :param stride: down sample stride of the feature map
         :param dtype: data type of the tensors
@@ -563,33 +578,35 @@ class GFLHead(nn.Module):
         x_range = (torch.arange(w, dtype=dtype, device=device) + 0.5) * stride
         y_range = (torch.arange(h, dtype=dtype, device=device) + 0.5) * stride
         y, x = torch.meshgrid(y_range, x_range)
-        if flatten:
+        if flatten:  # True
             y = y.flatten()
             x = x.flatten()
-        return y, x
+        return y, x  # tensor([y0, y1, ...]), tensor([x0, x1, ...])
 
     def get_grid_cells(self, featmap_size, scale, stride, dtype, device='cuda'):
         """
         Generate grid cells of a feature map for target assignment.
+        生成特征图的网格单元用于目标分配
         :param featmap_size: Size of a single level feature map.
-        :param scale: Grid cell scale.
+        :param scale: Grid cell scale. （octave_base_scale
         :param stride: Down sample stride of the feature map.
         :param dtype: Data type of the tensors.
         :param device: Device of the tensors.
         :return: Grid_cells xyxy position. Size should be [feat_w * feat_h, 4]
         """
-        cell_size = stride * scale
-        y, x = self.get_single_level_center_point(
+        cell_size = stride * scale  # 单个网格边长
+        y, x = self.get_single_level_center_point(  # 网格中心点坐标
             featmap_size, stride, dtype, device, flatten=True)
         grid_cells = torch.stack(
             [x - 0.5 * cell_size, y - 0.5 * cell_size,
              x + 0.5 * cell_size, y + 0.5 * cell_size], dim=-1
         )
-        return grid_cells
+        return grid_cells   # tensor([[x0, y0, x1, y1], [x2, y2, x3, y3], ...])
 
     def grid_cells_to_center(self, grid_cells):
         """
         Get center location of each gird cell
+        返回每个grid cell的中心坐标
         :param grid_cells: grid cells of a feature map
         :return: center points
         """
