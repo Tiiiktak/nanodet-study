@@ -52,6 +52,10 @@ class NanoDetHead(GFLHead):
         self.gfl_cls = nn.ModuleList([nn.Conv2d(self.feat_channels,
                                                 self.cls_out_channels +  # 若gfl_cls与gfl_reg共享conv blocks
                                                 4 * (self.reg_max + 1) if self.share_cls_reg else self.cls_out_channels,
+                                                # cls_out_channels box属于每个类别的概率
+                                                # 4 -> 四个方向
+                                                # reg_max 该方向最大长度
+                                                # 1 
                                                 1,
                                                 padding=0) for _ in self.strides])
         # GFL bbox regression

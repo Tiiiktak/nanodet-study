@@ -17,8 +17,8 @@ model:
     head:
       name: NanoDetHead
       num_classes: 80
-      input_channel: 96
-      feat_channels: 96
+      input_channel: 96 # input feature map channel
+      feat_channels: 96 # channel of task head convs
       stacked_convs: 2  # how many conv blocks use in one task head
       share_cls_reg: True # use same conv blocks for classification and box regression
       octave_base_scale: 5 # base box scale

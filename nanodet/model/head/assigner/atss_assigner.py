@@ -40,7 +40,7 @@ class ATSSAssigner(BaseAssigner):
 
     def assign(self,
                bboxes,
-               num_level_bboxes,
+               num_level_bboxes,    # [[num1, num2, num3], [num1, num2, num3], ...]
                gt_bboxes,
                gt_bboxes_ignore=None,
                gt_labels=None):
@@ -59,9 +59,11 @@ class ATSSAssigner(BaseAssigner):
            the threshold as postive
         6. limit the positive sample's center in gt
 
+        将每个gt分配给离它中心最近，且iou大于(mean+std)的grid
 
         Args:
             bboxes (Tensor): Bounding boxes to be assigned, shape(n, 4).
+                                (batch_size * level * feat_h * feat_w, 4)
             num_level_bboxes (List): num of bboxes in each level
             gt_bboxes (Tensor): Groundtruth boxes, shape (k, 4).
             gt_bboxes_ignore (Tensor, optional): Ground truth bboxes that are
@@ -79,11 +81,11 @@ class ATSSAssigner(BaseAssigner):
         overlaps = bbox_overlaps(bboxes, gt_bboxes)
 
         # assign 0 by default
-        assigned_gt_inds = overlaps.new_full((num_bboxes,),
+        assigned_gt_inds = overlaps.new_full((num_bboxes,),  # 返回的Tensor与当前Tensor device相同
                                              0,
                                              dtype=torch.long)
 
-        if num_gt == 0 or num_bboxes == 0:
+        if num_gt == 0 or num_bboxes == 0:  # 无gt 或 无grid
             # No ground truth or boxes, return empty assignment
             max_overlaps = overlaps.new_zeros((num_bboxes,))
             if num_gt == 0:
@@ -99,7 +101,7 @@ class ATSSAssigner(BaseAssigner):
                 num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels)
 
         # compute center distance between all bbox and gt
-        gt_cx = (gt_bboxes[:, 0] + gt_bboxes[:, 2]) / 2.0
+        gt_cx = (gt_bboxes[:, 0] + gt_bboxes[:, 2]) / 2.0   # gt_bboxes [x, y, x, y]
         gt_cy = (gt_bboxes[:, 1] + gt_bboxes[:, 3]) / 2.0
         gt_points = torch.stack((gt_cx, gt_cy), dim=1)
 
@@ -120,7 +122,7 @@ class ATSSAssigner(BaseAssigner):
             distances_per_level = distances[start_idx:end_idx, :]
             selectable_k = min(self.topk, bboxes_per_level)
             _, topk_idxs_per_level = distances_per_level.topk(
-                selectable_k, dim=0, largest=False)
+                selectable_k, dim=0, largest=False)  # 返回最小的k个值的索引 dim=0 按列
             candidate_idxs.append(topk_idxs_per_level + start_idx)
             start_idx = end_idx
         candidate_idxs = torch.cat(candidate_idxs, dim=0)
@@ -160,8 +162,8 @@ class ATSSAssigner(BaseAssigner):
         overlaps_inf[index] = overlaps.t().contiguous().view(-1)[index]
         overlaps_inf = overlaps_inf.view(num_gt, -1).t()
 
-        max_overlaps, argmax_overlaps = overlaps_inf.max(dim=1)
-        assigned_gt_inds[
+        max_overlaps, argmax_overlaps = overlaps_inf.max(dim=1)  # 取iou最大的那一项
+        assigned_gt_inds[   # 正样本编号
             max_overlaps != -INF] = argmax_overlaps[max_overlaps != -INF] + 1
 
         if gt_labels is not None:
@@ -170,7 +172,7 @@ class ATSSAssigner(BaseAssigner):
                 assigned_gt_inds > 0, as_tuple=False).squeeze()
             if pos_inds.numel() > 0:
                 assigned_labels[pos_inds] = gt_labels[
-                    assigned_gt_inds[pos_inds] - 1]
+                    assigned_gt_inds[pos_inds] - 1]  # 记录正样本label
         else:
             assigned_labels = None
         return AssignResult(

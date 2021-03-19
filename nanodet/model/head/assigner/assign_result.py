@@ -29,10 +29,10 @@ class AssignResult(util_mixins.NiceRepr):
         gt_inds (LongTensor): for each predicted box indicates the 1-based
             index of the assigned truth box. 0 means unassigned and -1 means
             ignore.
-
+            对于每个box(grid)表示分配的gt从1开始的索引  0-未分配  -1 忽略
         max_overlaps (FloatTensor): the iou between the predicted box and its
             assigned truth box.
-
+            box与gt的iou （由于取的是一个box对应iou最大的gt，故有个max
         labels (None | LongTensor): If specified, for each predicted box
             indicates the category label of the assigned truth box.
 
