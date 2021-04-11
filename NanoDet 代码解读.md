@@ -4,6 +4,13 @@ NanoDet is a FCOS-style one-stage anchor-free object detection model which using
 
 ![img](https://github.com/RangiLyu/nanodet/raw/main/docs/imgs/Model_arch.png)
 
+> - [YOLO之外的另一选择，手机端97FPS的Anchor-Free目标检测模型NanoDet现已开源~](https://zhuanlan.zhihu.com/p/306530300)
+> - [FCOS:一阶全卷积目标检测](https://zhuanlan.zhihu.com/p/63868458)
+> - [大白话 Generalized Focal Loss](https://zhuanlan.zhihu.com/p/147691786)
+> - [深度学习_YOLO与SSD(6)](https://blog.csdn.net/qq_31784189/article/details/112723635)
+> - [YOLO详解](https://zhuanlan.zhihu.com/p/25236464/)
+> - [bounding box回归的原理学习——yoloV1](https://blog.csdn.net/brightming/article/details/78072045)
+
 ## Train
 
 ```

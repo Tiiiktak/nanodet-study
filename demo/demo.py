@@ -14,10 +14,14 @@ video_ext = ['mp4', 'mov', 'avi', 'mkv']
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('demo', default='image', help='demo type, eg. image, video and webcam')
-    parser.add_argument('--config', help='model config file path')
-    parser.add_argument('--model', help='model file path')
-    parser.add_argument('--path', default='./demo', help='path to images or video')
+    parser.add_argument('demo', default='video', help='demo type, eg. image, video and webcam')
+    parser.add_argument('--config', help='model config file path',
+                        default='/home/dsh/icecream_project_data/model_checkpoints/nanodet_stage2_0330_config.yml')
+    parser.add_argument('--model', help='model file path',
+                        default='/home/dsh/icecream_project_data/model_checkpoints'
+                                '/nanodet_stage2_0407_epoch26_model_best.pth')
+    parser.add_argument('--path', help='path to images or video',
+                        default='/home/dsh/icecream_project_data/2021-03-17_13-23-47_CBQKL+HFL.avi')
     parser.add_argument('--camid', type=int, default=0, help='webcam demo camera id')
     parser.add_argument('--device', type=str, default='cpu', help='device cpu or cuda:x')
     args = parser.parse_args()
